@@ -1,0 +1,58 @@
+apiVersion: v1
+kind: DeploymentConfig
+metadata:
+  labels:
+    app: guava-caching
+  name: guava-caching
+spec:
+  replicas: 1
+  selector:
+    app: guava-caching
+    deploymentconfig: guava-caching
+  strategy:
+    resources: {}
+    rollingParams:
+      intervalSeconds: 1
+      maxSurge: 25%
+      maxUnavailable: 25%
+      timeoutSeconds: 600
+      updatePeriodSeconds: 1
+    type: Rolling
+  template:
+    metadata:
+      labels:
+        app: guava-caching
+        deploymentconfig: guava-caching
+    spec:
+      containers:
+      - image: barclay-registry.barcapint.com:5000/${SOURCE_BOB}/command-recurring-payment-api:${API_VERSION}
+        name: command-recurring-payment-api
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        - env:
+         - name: H2DATASOURCE
+           valueFrom:
+             secretKeyRef:
+               name: h2-secrets
+               key: spring.datasource.url
+             
+        volumeMounts:
+            -
+              name: command-recurring-payment-api-data
+              mountPath: /data
+        terminationMessagePath: /dev/termination-log
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+  triggers:
+  - type: ConfigChange
+  - imageChangeParams:
+      automatic: true
+      containerNames:
+      - command-recurring-payment-api
+      from:
+        kind: ImageStreamTag
+        name: command-recurring-payment-api:latest
+    type: ImageChange
